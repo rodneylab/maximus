@@ -2,10 +2,13 @@ lockfileVersion: 5.3
 
 specifiers:
   '@supabase/supabase-js': ^1.15.1
+  '@types/connect-redis': ^0.0.16
   '@types/cors': ^2.8.10
   '@types/express': ^4.17.12
   '@types/express-session': ^1.17.3
+  '@types/ioredis': ^4.26.4
   '@types/node': ^15.12.4
+  '@types/redis': ^2.8.29
   '@typescript-eslint/eslint-plugin': ^4.27.0
   apollo-server-express: ^2.25.1
   connect-redis: ^6.0.0
@@ -45,10 +48,13 @@ dependencies:
 
 devDependencies:
   '@supabase/supabase-js': 1.15.1
+  '@types/connect-redis': 0.0.16
   '@types/cors': 2.8.10
   '@types/express': 4.17.12
   '@types/express-session': 1.17.3
+  '@types/ioredis': 4.26.4
   '@types/node': 15.12.4
+  '@types/redis': 2.8.29
   '@typescript-eslint/eslint-plugin': 4.27.0_eslint@7.29.0+typescript@4.3.4
   eslint: 7.29.0
   eslint-config-airbnb-base: 14.2.1_eslint@7.29.0
@@ -292,6 +298,15 @@ packages:
       '@types/connect': 3.4.34
       '@types/node': 15.12.4
 
+  /@types/connect-redis/0.0.16:
+    resolution: {integrity: sha512-ToZRmwoeqRhzGIqMO9k8Hs1B9pFSGYCjHvMpPlgo+kQ4M7xaPwi2/5HjikJ0MOfPDFcAe9Qwl1SaULYCNE6jYg==}
+    dependencies:
+      '@types/express': 4.17.12
+      '@types/express-session': 1.17.3
+      '@types/ioredis': 4.26.4
+      '@types/redis': 2.8.29
+    dev: true
+
   /@types/connect/3.4.34:
     resolution: {integrity: sha512-ePPA/JuI+X0vb+gSWlPKOY0NdNAie/rPUqX2GUPpbZwiKTkSPhjXWuee47E4MtE54QVzGCQMQkAL6JhV2E1+cQ==}
     dependencies:
@@ -372,6 +387,12 @@ packages:
     resolution: {integrity: sha512-2aoSC4UUbHDj2uCsCxcG/vRMXey/m17bC7UwitVm5hn22nI8O8Y9iDpA76Orc+DWkQ4zZrOKEshCqR/jSuXAHA==}
     dev: false
 
+  /@types/ioredis/4.26.4:
+    resolution: {integrity: sha512-QFbjNq7EnOGw6d1gZZt2h26OFXjx7z+eqEnbCHSrDI1OOLEgOHMKdtIajJbuCr9uO+X9kQQRe7Lz6uxqxl5XKg==}
+    dependencies:
+      '@types/node': 15.12.4
+    dev: true
+
   /@types/json-schema/7.0.7:
     resolution: {integrity: sha512-cxWFQVseBm6O9Gbw1IWb8r6OS4OhSt3hPZLkFApLjM8TEXROBuQGLAH2i2gZpcXdLBIrpXuTDhH7Vbm1iXmNGA==}
     dev: true
@@ -422,6 +443,12 @@ packages:
 
   /@types/range-parser/1.2.3:
     resolution: {integrity: sha512-ewFXqrQHlFsgc09MK5jP5iR7vumV/BYayNC6PgJO2LPe8vrnNFyjQjSppfEngITi0qvfKtzFvgKymGheFM9UOA==}
+
+  /@types/redis/2.8.29:
+    resolution: {integrity: sha512-/pjQ9lwnL/t1bEfRHQFEJB3kHCR65tpB19NEWmbqcgGgqrfeGo/9b4tUtHbClxQoy3+g6Esx2QRtV7fk7kBPYg==}
+    dependencies:
+      '@types/node': 15.12.4
+    dev: true
 
   /@types/semver/7.3.6:
     resolution: {integrity: sha512-0caWDWmpCp0uifxFh+FaqK3CuZ2SkRR/ZRxAV5+zNdC3QVUi6wyOJnefhPvtNt8NQWXB5OA93BUvZsXpWat2Xw==}
