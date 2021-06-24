@@ -5,7 +5,7 @@ import Image from '../entity/Image';
 export class ImageResolver {
   @Query(() => String)
   image() {
-    return "I'll give you images";
+    return "I'll give you an image";
   }
 
   @Query(() => [Image])

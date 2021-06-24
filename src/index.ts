@@ -21,8 +21,8 @@ import VideoResolver from './resolvers/video';
 import { isProduction } from './utilities/utilities';
 
 const startServer = async () => {
-  const dbConnection = await createConnection({
-    // await createConnection({
+  // const dbConnection = await createConnection({
+  await createConnection({
     type: 'postgres',
     url: process.env.SUPABASE_URL,
     logging: !isProduction,
@@ -30,10 +30,9 @@ const startServer = async () => {
     entities: [Image, Post, Video],
     synchronize: true,
   });
-  dbConnection.runMigrations();
+  // dbConnection.runMigrations();
 
-  const app = express() as any;
-  // const app = express();
+  const app = express();
   const RedisStore = connectRedis(session);
   const redis = new Redis(process.env.REDIS_URL);
   app.set('trust proxy', 1);
