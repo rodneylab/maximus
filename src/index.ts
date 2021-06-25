@@ -1,7 +1,7 @@
 import { ApolloServer } from 'apollo-server-express';
 import compression from 'compression';
 import connectRedis from 'connect-redis';
-// import cors from 'cors';
+import cors from 'cors';
 import 'dotenv/config';
 import express from 'express';
 import session from 'express-session';
@@ -36,7 +36,7 @@ const startServer = async () => {
   const RedisStore = connectRedis(session);
   const redis = new Redis(process.env.REDIS_URL);
   app.set('trust proxy', 1);
-  // app.use(cors({ origin: process.env.CORS_ORIGIN, credentials: true }));
+  app.use(cors({ origin: process.env.CORS_ORIGIN, credentials: true }));
   app.use(compression());
 
   app.use(
