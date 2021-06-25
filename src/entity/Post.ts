@@ -23,7 +23,7 @@ class Post extends BaseEntity {
   title!: string;
 
   @Field(() => String)
-  @Column()
+  @Column({ unique: true })
   slug!: string;
 
   @Field(() => Date)
@@ -38,7 +38,7 @@ class Post extends BaseEntity {
   @OneToMany(() => Image, (image) => image.slug)
   images: Image[];
 
-  @Field(() => Video)
+  @Field(() => Video, { nullable: true })
   @OneToMany(() => Video, (video) => video.slug)
   videos: Video[];
 }

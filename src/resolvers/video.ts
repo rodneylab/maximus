@@ -15,11 +15,4 @@ class VideoResolver {
   }
 }
 
-// @Resolver()
-// class VideoResolver {
-//   @Query(() => [Video])
-//   videos(@Arg('slug') slug: String): Promise<Video[]> {
-//     return Video.find({ where: { slug } });
-//   }
-
 export { VideoResolver as default };

@@ -20,6 +20,11 @@ class PaginatedPosts {
 
 @Resolver(Post)
 export class PostResolver {
+  @Query(() => Post, { nullable: true })
+  post(@Arg('slug', () => String) slug: string): Promise<Post | undefined> {
+    return Post.findOne({ where: { slug } });
+  }
+
   @Query(() => PaginatedPosts)
   async posts(
     @Arg('limit', () => Int) limit: number,
