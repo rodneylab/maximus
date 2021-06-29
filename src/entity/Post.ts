@@ -1,4 +1,5 @@
 import { Field, ID, ObjectType } from 'type-graphql';
+import { TypeormLoader } from 'type-graphql-dataloader';
 import {
   BaseEntity,
   Column,
@@ -34,13 +35,20 @@ class Post extends BaseEntity {
   @UpdateDateColumn()
   updatedAt: Date;
 
-  @Field(() => Image)
+  @Field(() => [Image], { nullable: true })
   @OneToMany(() => Image, (image) => image.slug)
   images: Image[];
 
-  @Field(() => Video, { nullable: true })
+  @Field(() => [Video], { nullable: true })
+  // @OneToMany(() => Video, (video) => video.slug, { cascade: true })
   @OneToMany(() => Video, (video) => video.slug)
+  @TypeormLoader()
   videos: Video[];
+
+  @Field(() => [Post], { nullable: true })
+  @OneToMany(() => Post, (post) => post.slug)
+  @TypeormLoader()
+  relatedPosts: Post[];
 }
 
 export { Post as default };

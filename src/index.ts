@@ -9,7 +9,8 @@ import Redis from 'ioredis';
 import path from 'path';
 import 'reflect-metadata';
 import { buildSchema } from 'type-graphql';
-import { createConnection } from 'typeorm';
+import { ApolloServerLoaderPlugin } from 'type-graphql-dataloader';
+import { createConnection, getConnection } from 'typeorm';
 import { COOKIE_NAME } from './constants';
 import Image from './entity/Image';
 import Post from './entity/Post';
@@ -61,6 +62,11 @@ const startServer = async () => {
       resolvers: [HelloResolver, ImageResolver, PostResolver, VideoResolver],
       validate: false,
     }),
+    plugins: [
+      ApolloServerLoaderPlugin({
+        typeormGetConnection: getConnection,
+      }),
+    ],
     context: ({ req, res }) => ({
       req,
       res,

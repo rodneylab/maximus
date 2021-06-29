@@ -1,6 +1,19 @@
-import { Arg, Field, InputType, Int, Mutation, ObjectType, Query, Resolver } from 'type-graphql';
-import { getConnection } from 'typeorm';
+import {
+  Arg,
+  Field,
+  FieldResolver,
+  InputType,
+  Int,
+  Mutation,
+  ObjectType,
+  Query,
+  Resolver,
+  Root,
+} from 'type-graphql';
+import { getConnection, getRepository } from 'typeorm';
 import Post from '../entity/Post';
+import Video from '../entity/Video';
+import { Videos } from './video';
 
 @InputType()
 class PostInput {
@@ -20,6 +33,11 @@ class PaginatedPosts {
 
 @Resolver(Post)
 export class PostResolver {
+  @FieldResolver(() => Videos)
+  async videos(@Root() post: Post) {
+    return getRepository(Video).find({ where: { slug: post.slug } });
+  }
+
   @Query(() => Post, { nullable: true })
   post(@Arg('slug', () => String) slug: string): Promise<Post | undefined> {
     return Post.findOne({ where: { slug } });

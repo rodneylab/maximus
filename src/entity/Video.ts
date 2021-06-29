@@ -1,4 +1,5 @@
 import { Field, ID, Int, ObjectType } from 'type-graphql';
+import { TypeormLoader } from 'type-graphql-dataloader';
 import {
   BaseEntity,
   Column,
@@ -25,6 +26,18 @@ class Video extends BaseEntity {
   @Column({ length: 128 })
   key!: string;
 
+  // @Field(() => String, { nullable: true })
+  // @Column()
+  // storageFileId: string;
+
+  // @Field(() => String)
+  // @Column()
+  // storageUrl: string;
+
+  // @Field(() => String)
+  // @Column()
+  // description: string;
+
   @Field(() => Int)
   @Column()
   duration: number;
@@ -41,8 +54,13 @@ class Video extends BaseEntity {
   @UpdateDateColumn()
   updatedAt: Date;
 
+  // @Field(() => Post)
+  // @ManyToOne(() => Post, (post) => post.videos)
+  // post: Post;
+
   @Field(() => Post)
   @ManyToOne(() => Post, (post) => post.videos)
+  @TypeormLoader()
   post: Post;
 }
 
