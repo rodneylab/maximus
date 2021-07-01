@@ -38,6 +38,7 @@
   },
   "dependencies": {
     "apollo-server-express": "^2.25.2",
+    "axios": "^0.21.1",
     "class-validator": "^0.13.1",
     "compression": "^1.7.4",
     "connect-redis": "^6.0.0",
