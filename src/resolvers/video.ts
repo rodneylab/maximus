@@ -1,5 +1,6 @@
 import { Arg, Field, InputType, Int, Mutation, ObjectType, Query, Resolver } from 'type-graphql';
 import Video from '../entity/Video';
+import { upload } from '../utilities/video';
 
 @InputType()
 class VideoIdentifiers {
@@ -40,10 +41,14 @@ class VideoResolver {
 
   @Mutation(() => Video)
   async createVideo(@Arg('parameters') parameters: CreateVideoParameters): Promise<Video> {
+    const { captionsUrl, videoUrl } = parameters;
+    const { playbackId, videoId } = await upload({ captionsUrl, videoUrl });
     return Video.create({
       ...parameters,
       duration: 10,
-      playbackId: 'aAbBcCdDeEfFgGhHiIjJkKlLmMnNoOpPqQrRsStTuUvVwW',
+      playbackId,
+      videoId,
+      ready: false,
     }).save();
   }
 

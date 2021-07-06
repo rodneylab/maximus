@@ -42,9 +42,17 @@ class Video extends BaseEntity {
   @Column()
   duration: number;
 
-  @Field(() => String)
+  @Field(() => Boolean)
   @Column()
+  ready: boolean;
+
+  @Field(() => String)
+  @Column({ unique: true })
   playbackId: string;
+
+  @Field(() => String)
+  @Column({ unique: true })
+  videoId: string;
 
   @Field(() => Date)
   @CreateDateColumn()

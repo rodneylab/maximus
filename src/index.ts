@@ -1,4 +1,5 @@
 import { ApolloServer } from 'apollo-server-express';
+import bodyParser from 'body-parser';
 import compression from 'compression';
 import connectRedis from 'connect-redis';
 import cors from 'cors';
@@ -139,6 +140,21 @@ const startServer = async () => {
 
       res.json({ fields, files, captions, video });
     });
+  });
+
+  const jsonParser = bodyParser.json();
+  app.post(`/api/${process.env.MUX_WEBHOOK_ENDPOINT}`, jsonParser, async (req, res) => {
+    const { type, data } = req.body;
+    const { status, id: videoId, duration } = data;
+
+    if (type === 'video.asset.ready' && status === 'ready') {
+      const video = await Video.findOne({ where: { videoId } });
+      if (video) {
+        const { id } = video;
+        await Video.update({ id }, { ready: true, duration });
+      }
+    }
+    res.sendStatus(200);
   });
 
   const port = parseInt(process.env.PORT as string, 10);
