@@ -1,13 +1,28 @@
 import { Arg, Field, InputType, Int, Mutation, ObjectType, Query, Resolver } from 'type-graphql';
 import Video from '../entity/Video';
-import { authoriseAccount } from '../utilities/storage';
 
 @InputType()
 class VideoIdentifiers {
   @Field()
   slug: string;
+
   @Field()
   key: string;
+}
+
+@InputType()
+class CreateVideoParameters {
+  @Field()
+  slug: string;
+
+  @Field()
+  key: string;
+
+  @Field()
+  captionsUrl: string;
+
+  @Field()
+  videoUrl: string;
 }
 
 @ObjectType()
@@ -24,10 +39,9 @@ class VideoResolver {
   }
 
   @Mutation(() => Video)
-  async createVideo(@Arg('identifiers') identifiers: VideoIdentifiers): Promise<Video> {
-    await authoriseAccount();
+  async createVideo(@Arg('parameters') parameters: CreateVideoParameters): Promise<Video> {
     return Video.create({
-      ...identifiers,
+      ...parameters,
       duration: 10,
       playbackId: 'aAbBcCdDeEfFgGhHiIjJkKlLmMnNoOpPqQrRsStTuUvVwW',
     }).save();
