@@ -1,5 +1,4 @@
 import { ApolloServer } from 'apollo-server-express';
-import bodyParser from 'body-parser';
 import compression from 'compression';
 import connectRedis from 'connect-redis';
 import cors from 'cors';
@@ -17,7 +16,6 @@ import { COOKIE_NAME } from './constants';
 import Image from './entity/Image';
 import Post from './entity/Post';
 import Video from './entity/Video';
-import HelloResolver from './resolvers/hello';
 import ImageResolver from './resolvers/image';
 import PostResolver from './resolvers/post';
 import VideoResolver from './resolvers/video';
@@ -48,6 +46,8 @@ const startServer = async () => {
   });
   // dbConnection.runMigrations();
 
+  // await Video.delete({});
+
   const app = express();
   const RedisStore = connectRedis(session);
   const redis = new Redis(process.env.REDIS_URL);
@@ -74,7 +74,7 @@ const startServer = async () => {
 
   const apolloServer = new ApolloServer({
     schema: await buildSchema({
-      resolvers: [HelloResolver, ImageResolver, PostResolver, VideoResolver],
+      resolvers: [ImageResolver, PostResolver, VideoResolver],
       validate: false,
     }),
     plugins: [
@@ -100,6 +100,7 @@ const startServer = async () => {
 
     let captions = {};
     let video = {};
+    let successful = false;
 
     form.parse(req, async (err, fields, files: VideoFiles) => {
       if (err) {
@@ -134,6 +135,10 @@ const startServer = async () => {
 
         // get captions and video read urls
         const [captionsResult, videoResult] = await Promise.all([captionsPromise, videoPromise]);
+        if (!captionsResult.successful || !videoResult.successful) {
+          res.json({ successful });
+          return;
+        }
         captions = { url: captionsResult.readSignedUrl };
         video = { url: videoResult.readSignedUrl };
       }
@@ -142,16 +147,21 @@ const startServer = async () => {
     });
   });
 
-  const jsonParser = bodyParser.json();
+  const jsonParser = express.json();
   app.post(`/api/${process.env.MUX_WEBHOOK_ENDPOINT}`, jsonParser, async (req, res) => {
     const { type, data } = req.body;
     const { status, id: videoId, duration } = data;
 
+    // update duration and ready status
     if (type === 'video.asset.ready' && status === 'ready') {
       const video = await Video.findOne({ where: { videoId } });
       if (video) {
-        const { id } = video;
-        await Video.update({ id }, { ready: true, duration });
+        const now = new Date();
+        const recent = now.getTime() - video.createdAt.getTime() < 86_400_000; // 1000 * 3600 * 24;
+        if (recent) {
+          const { id } = video;
+          Video.update({ id }, { ready: true, duration });
+        }
       }
     }
     res.sendStatus(200);
