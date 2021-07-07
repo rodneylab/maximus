@@ -26,19 +26,11 @@ class Video extends BaseEntity {
   @Column({ length: 128 })
   key!: string;
 
-  // @Field(() => String, { nullable: true })
-  // @Column()
-  // storageFileId: string;
+  @Field(() => String)
+  @Column()
+  description: string;
 
-  // @Field(() => String)
-  // @Column()
-  // storageUrl: string;
-
-  // @Field(() => String)
-  // @Column()
-  // description: string;
-
-  @Field(() => Int)
+  @Field(() => Int, { nullable: true })
   @Column()
   duration: number;
 
@@ -61,10 +53,6 @@ class Video extends BaseEntity {
   @Field(() => Date)
   @UpdateDateColumn()
   updatedAt: Date;
-
-  // @Field(() => Post)
-  // @ManyToOne(() => Post, (post) => post.videos)
-  // post: Post;
 
   @Field(() => Post)
   @ManyToOne(() => Post, (post) => post.videos)

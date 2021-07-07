@@ -40,7 +40,6 @@ class Post extends BaseEntity {
   images: Image[];
 
   @Field(() => [Video], { nullable: true })
-  // @OneToMany(() => Video, (video) => video.slug, { cascade: true })
   @OneToMany(() => Video, (video) => video.slug)
   @TypeormLoader()
   videos: Video[];
