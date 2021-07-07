@@ -3,21 +3,15 @@ import Video from '../entity/Video';
 import { upload } from '../utilities/video';
 
 @InputType()
-class VideoIdentifiers {
-  @Field()
-  slug: string;
-
-  @Field()
-  key: string;
-}
-
-@InputType()
 class CreateVideoParameters {
   @Field()
   slug: string;
 
   @Field()
   key: string;
+
+  @Field()
+  description: string;
 
   @Field()
   captionsUrl: string;
@@ -45,7 +39,6 @@ class VideoResolver {
     const { playbackId, videoId } = await upload({ captionsUrl, videoUrl });
     return Video.create({
       ...parameters,
-      duration: 10,
       playbackId,
       videoId,
       ready: false,
