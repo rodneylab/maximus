@@ -6,5 +6,8 @@ node_modules
 .env.*
 !.env.EXAMPLE
 
+# Mac files
+.DS_Store
+
 # Supabase
 .supabase
