@@ -89,6 +89,8 @@ const startServer = async () => {
     }),
   });
 
+  await apolloServer.start();
+
   apolloServer.applyMiddleware({
     app,
     path: '/graphql',
@@ -141,9 +143,10 @@ const startServer = async () => {
         }
         captions = { url: captionsResult.readSignedUrl };
         video = { url: videoResult.readSignedUrl };
+        successful = true;
       }
 
-      res.json({ fields, files, captions, video });
+      res.json({ captions, successful, video });
     });
   });
 

@@ -1,5 +1,6 @@
 import { Arg, Field, InputType, Int, Mutation, ObjectType, Query, Resolver } from 'type-graphql';
 import Video from '../entity/Video';
+import { remove } from '../utilities/storage';
 import { upload } from '../utilities/video';
 
 @InputType()
@@ -14,7 +15,13 @@ class CreateVideoParameters {
   description: string;
 
   @Field()
+  captionsFile: string;
+
+  @Field()
   captionsUrl: string;
+
+  @Field()
+  videoFile: string;
 
   @Field()
   videoUrl: string;
@@ -35,10 +42,20 @@ class VideoResolver {
 
   @Mutation(() => Video)
   async createVideo(@Arg('parameters') parameters: CreateVideoParameters): Promise<Video> {
-    const { captionsUrl, videoUrl } = parameters;
+    const { captionsFile, captionsUrl, videoFile, videoUrl } = parameters;
     const { playbackId, videoId } = await upload({ captionsUrl, videoUrl });
+    function noop() {
+      console.log('waiting a second');
+    }
+    setTimeout(noop, 1000);
+    // todo(rodneyj): remove once mux processing is complete.  Add file keys to DB.
+    const captionsPromise = remove({ key: captionsFile });
+    const videoPromise = remove({ key: videoFile });
+    await Promise.all([captionsPromise, videoPromise]);
+
     return Video.create({
       ...parameters,
+      duration: 0,
       playbackId,
       videoId,
       ready: false,

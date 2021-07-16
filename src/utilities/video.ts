@@ -38,7 +38,6 @@ export const upload = (props: VideoUploadProps) => {
         data,
       });
 
-      console.log('mux response:', response);
       const { data: responseData } = response.data;
       const playbackId = responseData.playback_ids[0].id;
       const { id: videoId } = responseData;

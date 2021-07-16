@@ -1,4 +1,4 @@
-import { GetObjectCommand, PutObjectCommand, S3 } from '@aws-sdk/client-s3';
+import { DeleteObjectCommand, GetObjectCommand, PutObjectCommand, S3 } from '@aws-sdk/client-s3';
 import { S3RequestPresigner } from '@aws-sdk/s3-request-presigner';
 import { createRequest } from '@aws-sdk/util-create-request';
 import { formatUrl } from '@aws-sdk/util-format-url';
@@ -6,6 +6,8 @@ import axios from 'axios';
 import cuid from 'cuid';
 import fs from 'fs';
 import { isProduction } from './utilities';
+
+const BUCKET = process.env.BACKBLAZE_BUCKET_NAME;
 
 const authoriseAccount = async () => {
   if (!isProduction) {
@@ -63,13 +65,22 @@ const authoriseAccount = async () => {
 
 const getRegion = (s3ApiUrl: string) => s3ApiUrl.split('.')[1];
 
-interface GeneratePresignedUrlsProps {
-  readonly key: string;
-  readonly s3ApiUrl: string;
-}
+const getS3Client = ({ s3ApiUrl }: { s3ApiUrl: string }) => {
+  const credentials = {
+    accessKeyId: process.env.BACKBLAZE_ACCOUNT_ID as string,
+    secretAccessKey: process.env.BACKBLAZE_ACCOUNT_AUTH_TOKEN as string,
+    sessionToken: `session-${cuid()}`,
+  };
 
-const generatePresignedUrls = async (props: GeneratePresignedUrlsProps) => {
-  const { key, s3ApiUrl } = props;
+  const S3Client = new S3({
+    endpoint: s3ApiUrl,
+    region: getRegion(s3ApiUrl),
+    credentials,
+  });
+  return S3Client;
+};
+
+const generatePresignedUrls = async ({ key, s3ApiUrl }: { key: string; s3ApiUrl: string }) => {
   const Bucket = process.env.BACKBLAZE_BUCKET_NAME;
   const Key = key;
   const credentials = {
@@ -94,15 +105,38 @@ const generatePresignedUrls = async (props: GeneratePresignedUrlsProps) => {
 
 const initiateMultipartUpload = () => {};
 
-interface S3CompatibleUploadProps {
-  readonly contentType: string;
-  readonly key: string;
-  readonly path: string;
-  readonly size?: number;
-}
+export const remove = async ({ key }: { key: string }) => {
+  const { s3ApiUrl } = await authoriseAccount();
+  const S3Client = getS3Client({ s3ApiUrl });
 
-export const upload = async (props: S3CompatibleUploadProps) => {
-  const { contentType, key, path } = props;
+  /* If versioning is switched on for the bucket, this will only hide the file and create a delete
+   * marker.  Set lifecyle rules on the bucket to delete hidden files after one day, for example.
+   */
+  const deleteObject = async () => {
+    const { DeleteMarker: marker, VersionId: deleteMarkerVersionId } = await S3Client.send(
+      new DeleteObjectCommand({
+        Bucket: BUCKET,
+        Key: key,
+      }),
+    );
+    return { marker, deleteMarkerVersionId };
+  };
+
+  await setTimeout(deleteObject, 1000); // delay one second to avoid processing errors
+  return { successful: true };
+};
+
+export const upload = async ({
+  contentType,
+  key,
+  path,
+  size,
+}: {
+  contentType: string;
+  key: string;
+  path: string;
+  size: number;
+}) => {
   const result = (async () => {
     try {
       const { s3ApiUrl } = await authoriseAccount();
