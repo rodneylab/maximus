@@ -104,7 +104,7 @@ const startServer = async () => {
     let video = {};
     let successful = false;
 
-    form.parse(req, async (err, fields, files: VideoFiles) => {
+    form.parse(req, async (err, _fields, files: VideoFiles) => {
       if (err) {
         next(err);
         return;

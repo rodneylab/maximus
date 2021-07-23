@@ -1,5 +1,15 @@
-import { DeleteObjectCommand, GetObjectCommand, PutObjectCommand, S3 } from '@aws-sdk/client-s3';
+import {
+  CompletedPart,
+  CompleteMultipartUploadCommand,
+  CreateMultipartUploadCommand,
+  DeleteObjectCommand,
+  GetObjectCommand,
+  PutObjectCommand,
+  S3,
+  UploadPartCommand,
+} from '@aws-sdk/client-s3';
 import { S3RequestPresigner } from '@aws-sdk/s3-request-presigner';
+import { HttpRequest as IHttpRequest } from '@aws-sdk/types';
 import { createRequest } from '@aws-sdk/util-create-request';
 import { formatUrl } from '@aws-sdk/util-format-url';
 import axios from 'axios';
@@ -9,7 +19,17 @@ import { isProduction } from './utilities';
 
 const BUCKET = process.env.BACKBLAZE_BUCKET_NAME;
 
-const authoriseAccount = async () => {
+type BackblazeAuthoriseAccountResponse = {
+  successful: boolean;
+  absoluteMinimumPartSize?: number;
+  authorisationToken?: string;
+  apiUrl?: string;
+  downloadUrl?: string;
+  recommendedPartSize?: number;
+  s3ApiUrl?: string;
+};
+
+const authoriseAccount = async (): Promise<BackblazeAuthoriseAccountResponse> => {
   if (!isProduction) {
     delete process.env.https_proxy;
     delete process.env.HTTPS_PROXY;
@@ -63,6 +83,27 @@ const authoriseAccount = async () => {
   return result;
 };
 
+const completeMultipartUpload = async ({
+  parts,
+  client,
+  key,
+  uploadId,
+}: {
+  client: S3;
+  key: string;
+  parts: CompletedPart[];
+  uploadId: string;
+}) => {
+  await client.send(
+    new CompleteMultipartUploadCommand({
+      Key: key,
+      Bucket: BUCKET,
+      MultipartUpload: { Parts: parts },
+      UploadId: uploadId,
+    }),
+  );
+};
+
 const getRegion = (s3ApiUrl: string) => s3ApiUrl.split('.')[1];
 
 const getS3Client = ({ s3ApiUrl }: { s3ApiUrl: string }) => {
@@ -103,27 +144,151 @@ const generatePresignedUrls = async ({ key, s3ApiUrl }: { key: string; s3ApiUrl:
   return { readSignedUrl, writeSignedUrl };
 };
 
-const initiateMultipartUpload = () => {};
+const initiateMultipartUpload = async ({
+  client,
+  key,
+}: {
+  client: S3;
+  key: string;
+}): Promise<string | undefined> => {
+  const { UploadId: uploadId } = await client.send(
+    new CreateMultipartUploadCommand({ Key: key, Bucket: BUCKET }),
+  );
+  return uploadId;
+};
+
+const generatePresignedPartUrls = async ({
+  client,
+  key,
+  uploadId,
+  partCount,
+}: {
+  client: S3;
+  key: string;
+  uploadId: string;
+  partCount: number;
+}) => {
+  const signer = new S3RequestPresigner({ ...client.config });
+  const createRequestPromises = [];
+
+  for (let index = 0; index < partCount; index += 1) {
+    createRequestPromises.push(
+      createRequest(
+        client,
+        new UploadPartCommand({
+          Key: key,
+          Bucket: BUCKET,
+          UploadId: uploadId,
+          PartNumber: index + 1,
+        }),
+      ),
+    );
+  }
+
+  const uploadPartRequestResults = await Promise.all(createRequestPromises);
+
+  const presignPromises: Promise<IHttpRequest>[] = [];
+  uploadPartRequestResults.forEach((element) => presignPromises.push(signer.presign(element)));
+  const presignPromiseResults = await Promise.all(presignPromises);
+  return presignPromiseResults.map((element) => formatUrl(element));
+};
 
 export const remove = async ({ key }: { key: string }) => {
   const { s3ApiUrl } = await authoriseAccount();
-  const S3Client = getS3Client({ s3ApiUrl });
+  if (s3ApiUrl) {
+    const client = getS3Client({ s3ApiUrl });
 
-  /* If versioning is switched on for the bucket, this will only hide the file and create a delete
-   * marker.  Set lifecyle rules on the bucket to delete hidden files after one day, for example.
-   */
-  const deleteObject = async () => {
-    const { DeleteMarker: marker, VersionId: deleteMarkerVersionId } = await S3Client.send(
-      new DeleteObjectCommand({
-        Bucket: BUCKET,
-        Key: key,
-      }),
-    );
-    return { marker, deleteMarkerVersionId };
-  };
+    /* If versioning is switched on for the bucket, this will only hide the file and create a delete
+     * marker.  Set lifecyle rules on the bucket to delete hidden files after one day, for example.
+     */
+    const deleteObject = async () => {
+      const { DeleteMarker: marker, VersionId: deleteMarkerVersionId } = await client.send(
+        new DeleteObjectCommand({
+          Bucket: BUCKET,
+          Key: key,
+        }),
+      );
+      return { marker, deleteMarkerVersionId };
+    };
 
-  await setTimeout(deleteObject, 1000); // delay one second to avoid processing errors
-  return { successful: true };
+    await setTimeout(deleteObject, 1000); // delay one second to avoid processing errors
+    return { successful: true };
+  }
+  return { successful: false };
+};
+
+const uploadParts = async ({
+  contentType,
+  partSize = 10_000_000,
+  path,
+  uploadUrls,
+}: {
+  contentType: string;
+  partSize: number;
+  path: string;
+  uploadUrls: string[];
+}): Promise<CompletedPart[]> => {
+  const data = await fs.readFileSync(path);
+  const lastIndex = uploadUrls.length - 1;
+
+  const uploadPromises = uploadUrls.map((element, index) => {
+    return axios({
+      url: element,
+      method: 'PUT',
+      data:
+        index !== lastIndex
+          ? data.slice(index * partSize, (index + 1) * partSize)
+          : data.slice(index * partSize),
+      headers: {
+        'Content-Type': contentType,
+      },
+    });
+  });
+  const uploadResults = await Promise.all(uploadPromises);
+  return uploadResults.map((element, index) => ({
+    ETag: element.headers.etag,
+    PartNumber: index + 1,
+  }));
+};
+
+const singlePartUpload = async ({
+  contentType,
+  key,
+  path,
+  s3ApiUrl,
+}: {
+  contentType: string;
+  key: string;
+  path: string;
+  s3ApiUrl: string;
+}): Promise<{
+  successful: boolean;
+  readSignedUrl?: string;
+  message?: string;
+}> => {
+  try {
+    const { readSignedUrl, writeSignedUrl } = await generatePresignedUrls({ key, s3ApiUrl });
+    const data = await fs.readFileSync(path);
+    await axios({
+      url: writeSignedUrl,
+      method: 'PUT',
+      data,
+      headers: {
+        'Content-Type': contentType,
+      },
+    });
+    return { successful: true, readSignedUrl };
+  } catch (error) {
+    let message;
+    if (error.response) {
+      message = `Storage server responded with non 2xx code: ${error.response.data}`;
+    } else if (error.request) {
+      message = `No storage response received: ${error.request}`;
+    } else {
+      message = `Error setting up storage response: ${error.message}`;
+    }
+    return { successful: false, message };
+  }
 };
 
 export const upload = async ({
@@ -136,21 +301,41 @@ export const upload = async ({
   key: string;
   path: string;
   size: number;
-}) => {
+}): Promise<{
+  successful: boolean;
+  readSignedUrl?: string;
+  message?: string;
+}> => {
   const result = (async () => {
     try {
-      const { s3ApiUrl } = await authoriseAccount();
-      const { readSignedUrl, writeSignedUrl } = await generatePresignedUrls({ key, s3ApiUrl });
-      const data = await fs.readFileSync(path);
-      await axios({
-        url: writeSignedUrl,
-        method: 'PUT',
-        data,
-        headers: {
-          'Content-Type': contentType,
-        },
-      });
-      return { successful: true, readSignedUrl, writeSignedUrl };
+      const { absoluteMinimumPartSize, recommendedPartSize, s3ApiUrl } = await authoriseAccount();
+      if (s3ApiUrl) {
+        const client = getS3Client({ s3ApiUrl });
+        if (absoluteMinimumPartSize && size > absoluteMinimumPartSize) {
+          const uploadId = await initiateMultipartUpload({ client, key });
+          if (recommendedPartSize) {
+            const partSize =
+              size < recommendedPartSize ? absoluteMinimumPartSize : recommendedPartSize;
+            const partCount = Math.ceil(size / partSize);
+            if (uploadId) {
+              const uploadUrls = await generatePresignedPartUrls({
+                client,
+                key,
+                uploadId,
+                partCount,
+              });
+              const parts = await uploadParts({ contentType, partSize, path, uploadUrls });
+              completeMultipartUpload({ parts, client, key, uploadId });
+
+              const { readSignedUrl } = await generatePresignedUrls({ key, s3ApiUrl });
+              return { successful: true, readSignedUrl };
+            }
+          }
+        } else {
+          return singlePartUpload({ contentType, key, path, s3ApiUrl });
+        }
+      }
+      return { successful: false };
     } catch (error) {
       let message;
       if (error.response) {
