@@ -1,4 +1,5 @@
 import {
+  AbortMultipartUploadCommand,
   CompletedPart,
   CompleteMultipartUploadCommand,
   CreateMultipartUploadCommand,
@@ -27,6 +28,28 @@ type BackblazeAuthoriseAccountResponse = {
   downloadUrl?: string;
   recommendedPartSize?: number;
   s3ApiUrl?: string;
+};
+
+const abortMultipartUpload = async ({
+  client,
+  key,
+  uploadId,
+}: {
+  client: S3;
+  key: string;
+  uploadId: string;
+}) => {
+  try {
+    await client.send(
+      new AbortMultipartUploadCommand({
+        Key: key,
+        Bucket: BUCKET,
+        UploadId: uploadId,
+      }),
+    );
+  } catch (error) {
+    console.error('Error aborting multipart upload: ', error);
+  }
 };
 
 const authoriseAccount = async (): Promise<BackblazeAuthoriseAccountResponse> => {
@@ -93,15 +116,23 @@ const completeMultipartUpload = async ({
   key: string;
   parts: CompletedPart[];
   uploadId: string;
-}) => {
-  await client.send(
-    new CompleteMultipartUploadCommand({
-      Key: key,
-      Bucket: BUCKET,
-      MultipartUpload: { Parts: parts },
-      UploadId: uploadId,
-    }),
-  );
+}): Promise<{ successful: boolean; id?: string | undefined }> => {
+  try {
+    const { VersionId: id } = await client.send(
+      new CompleteMultipartUploadCommand({
+        Key: key,
+        Bucket: BUCKET,
+        MultipartUpload: { Parts: parts },
+        UploadId: uploadId,
+      }),
+    );
+    if (id) {
+      return { successful: true, id };
+    }
+  } catch (error) {
+    console.error('Error in completing multipart upload: ', error);
+  }
+  return { successful: false };
 };
 
 const getRegion = (s3ApiUrl: string) => s3ApiUrl.split('.')[1];
@@ -143,6 +174,25 @@ const generatePresignedUrls = async ({ key, s3ApiUrl }: { key: string; s3ApiUrl:
   const writeSignedUrl = formatUrl(await signer.presign(writeRequest));
   return { readSignedUrl, writeSignedUrl };
 };
+
+// const getObjectId = async ({ client, key }: { client: S3; key: string }): Promise<string> => {
+//   try {
+//     const { Versions: versions } = await client.send(
+//       new ListObjectVersionsCommand({
+//         KeyMarker: key,
+//         Bucket: BUCKET,
+//         MaxKeys: 1,
+//       }),
+//     );
+//     if (versions) {
+//       const latestVersion = versions.find((element) => element.IsLatest);
+//       return latestVersion?.VersionId || '';
+//     }
+//   } catch (error) {
+//     console.error('Error aborting multipart upload: ', error);
+//   }
+//   return '';
+// };
 
 const initiateMultipartUpload = async ({
   client,
@@ -193,7 +243,7 @@ const generatePresignedPartUrls = async ({
   return presignPromiseResults.map((element) => formatUrl(element));
 };
 
-export const remove = async ({ key }: { key: string }) => {
+export const remove = async ({ key, id }: { key: string; id?: string }) => {
   const { s3ApiUrl } = await authoriseAccount();
   if (s3ApiUrl) {
     const client = getS3Client({ s3ApiUrl });
@@ -206,6 +256,7 @@ export const remove = async ({ key }: { key: string }) => {
         new DeleteObjectCommand({
           Bucket: BUCKET,
           Key: key,
+          VersionId: id,
         }),
       );
       return { marker, deleteMarkerVersionId };
@@ -215,6 +266,48 @@ export const remove = async ({ key }: { key: string }) => {
     return { successful: true };
   }
   return { successful: false };
+};
+
+const singlePartUpload = async ({
+  contentType,
+  key,
+  path,
+  s3ApiUrl,
+}: {
+  contentType: string;
+  key: string;
+  path: string;
+  s3ApiUrl: string;
+}): Promise<{
+  successful: boolean;
+  readSignedUrl?: string;
+  message?: string;
+  id?: string;
+}> => {
+  try {
+    const { readSignedUrl, writeSignedUrl } = await generatePresignedUrls({ key, s3ApiUrl });
+    const data = await fs.readFileSync(path);
+    const result = await axios({
+      url: writeSignedUrl,
+      method: 'PUT',
+      data,
+      headers: {
+        'Content-Type': contentType,
+      },
+    });
+    const id = result.headers['x-amz-version-id'];
+    return { successful: true, readSignedUrl, id };
+  } catch (error) {
+    let message;
+    if (error.response) {
+      message = `Storage server responded with non 2xx code: ${error.response.data}`;
+    } else if (error.request) {
+      message = `No storage response received: ${error.request}`;
+    } else {
+      message = `Error setting up storage response: ${error.message}`;
+    }
+    return { successful: false, message };
+  }
 };
 
 const uploadParts = async ({
@@ -251,46 +344,6 @@ const uploadParts = async ({
   }));
 };
 
-const singlePartUpload = async ({
-  contentType,
-  key,
-  path,
-  s3ApiUrl,
-}: {
-  contentType: string;
-  key: string;
-  path: string;
-  s3ApiUrl: string;
-}): Promise<{
-  successful: boolean;
-  readSignedUrl?: string;
-  message?: string;
-}> => {
-  try {
-    const { readSignedUrl, writeSignedUrl } = await generatePresignedUrls({ key, s3ApiUrl });
-    const data = await fs.readFileSync(path);
-    await axios({
-      url: writeSignedUrl,
-      method: 'PUT',
-      data,
-      headers: {
-        'Content-Type': contentType,
-      },
-    });
-    return { successful: true, readSignedUrl };
-  } catch (error) {
-    let message;
-    if (error.response) {
-      message = `Storage server responded with non 2xx code: ${error.response.data}`;
-    } else if (error.request) {
-      message = `No storage response received: ${error.request}`;
-    } else {
-      message = `Error setting up storage response: ${error.message}`;
-    }
-    return { successful: false, message };
-  }
-};
-
 export const upload = async ({
   contentType,
   key,
@@ -305,14 +358,17 @@ export const upload = async ({
   successful: boolean;
   readSignedUrl?: string;
   message?: string;
+  id?: string;
 }> => {
   const result = (async () => {
+    let client;
+    let uploadId;
     try {
       const { absoluteMinimumPartSize, recommendedPartSize, s3ApiUrl } = await authoriseAccount();
       if (s3ApiUrl) {
-        const client = getS3Client({ s3ApiUrl });
+        client = getS3Client({ s3ApiUrl });
         if (absoluteMinimumPartSize && size > absoluteMinimumPartSize) {
-          const uploadId = await initiateMultipartUpload({ client, key });
+          uploadId = await initiateMultipartUpload({ client, key });
           if (recommendedPartSize) {
             const partSize =
               size < recommendedPartSize ? absoluteMinimumPartSize : recommendedPartSize;
@@ -325,19 +381,27 @@ export const upload = async ({
                 partCount,
               });
               const parts = await uploadParts({ contentType, partSize, path, uploadUrls });
-              completeMultipartUpload({ parts, client, key, uploadId });
-
+              const { id } = await completeMultipartUpload({ parts, client, key, uploadId });
               const { readSignedUrl } = await generatePresignedUrls({ key, s3ApiUrl });
-              return { successful: true, readSignedUrl };
+              return { successful: true, readSignedUrl, id };
             }
           }
         } else {
-          return singlePartUpload({ contentType, key, path, s3ApiUrl });
+          const singlePartUploadResult = await singlePartUpload({
+            contentType,
+            key,
+            path,
+            s3ApiUrl,
+          });
+          return { ...singlePartUploadResult };
         }
       }
       return { successful: false };
     } catch (error) {
       let message;
+      if (client && uploadId) {
+        abortMultipartUpload({ client, key, uploadId });
+      }
       if (error.response) {
         message = `Storage server responded with non 2xx code: ${error.response.data}`;
       } else if (error.request) {

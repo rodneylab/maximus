@@ -46,6 +46,22 @@ class Video extends BaseEntity {
   @Column({ unique: true })
   videoId: string;
 
+  @Field(() => String)
+  @Column({ nullable: true, unique: true })
+  captionsStorageId: string;
+
+  @Field(() => String)
+  @Column({ nullable: true })
+  captionsStorageKey: string;
+
+  @Field(() => String)
+  @Column({ nullable: true, unique: true })
+  videoStorageId: string;
+
+  @Field(() => String)
+  @Column({ nullable: true })
+  videoStorageKey: string;
+
   @Field(() => Date)
   @CreateDateColumn()
   createdAt: Date;

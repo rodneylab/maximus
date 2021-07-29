@@ -19,7 +19,7 @@ import Video from './entity/Video';
 import ImageResolver from './resolvers/image';
 import PostResolver from './resolvers/post';
 import VideoResolver from './resolvers/video';
-import { upload } from './utilities/storage';
+import { remove, upload } from './utilities/storage';
 import { isProduction } from './utilities/utilities';
 
 type UploadFile = {
@@ -141,8 +141,8 @@ const startServer = async () => {
           res.json({ successful });
           return;
         }
-        captions = { url: captionsResult.readSignedUrl };
-        video = { url: videoResult.readSignedUrl };
+        captions = { id: captionsResult.id, url: captionsResult.readSignedUrl };
+        video = { id: videoResult.id, url: videoResult.readSignedUrl };
         successful = true;
       }
 
@@ -162,7 +162,12 @@ const startServer = async () => {
         const now = new Date();
         const recent = now.getTime() - video.createdAt.getTime() < 86_400_000; // 1000 * 3600 * 24;
         if (recent) {
-          const { id } = video;
+          const { captionsStorageId, captionsStorageKey, id, videoStorageId, videoStorageKey } =
+            video;
+          await Promise.all([
+            remove({ id: captionsStorageId, key: captionsStorageKey }),
+            remove({ id: videoStorageId, key: videoStorageKey }),
+          ]);
           Video.update({ id }, { ready: true, duration });
         }
       }
