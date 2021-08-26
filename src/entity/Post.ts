@@ -5,11 +5,13 @@ import {
   Column,
   CreateDateColumn,
   Entity,
+  ManyToOne,
   OneToMany,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
 import Image from './Image';
+import User from './User';
 import Video from './Video';
 
 @Entity()
@@ -26,6 +28,15 @@ class Post extends BaseEntity {
   @Field(() => String)
   @Column({ unique: true })
   slug!: string;
+
+  @Field()
+  @Column()
+  creatorId: number;
+
+  @Field(() => User)
+  @ManyToOne(() => User, (user) => user.posts)
+  @TypeormLoader()
+  creator: User;
 
   @Field(() => Date)
   @CreateDateColumn()

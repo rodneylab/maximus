@@ -1,3 +1,4 @@
+import { createClient } from '@supabase/supabase-js';
 import { ApolloServer } from 'apollo-server-express';
 import compression from 'compression';
 import connectRedis from 'connect-redis';
@@ -15,12 +16,19 @@ import { createConnection, getConnection } from 'typeorm';
 import { COOKIE_NAME } from './constants';
 import Image from './entity/Image';
 import Post from './entity/Post';
+import User from './entity/User';
 import Video from './entity/Video';
 import ImageResolver from './resolvers/image';
 import PostResolver from './resolvers/post';
+import UserResolver from './resolvers/user';
 import VideoResolver from './resolvers/video';
 import { remove, upload } from './utilities/storage';
 import { isProduction } from './utilities/utilities';
+
+const supabase = createClient(
+  process.env.SUPABASE_URL as string,
+  process.env.SUPABASE_ANON_KEY as string,
+);
 
 type UploadFile = {
   name: string;
@@ -38,15 +46,16 @@ const startServer = async () => {
   // const dbConnection = await createConnection({
   await createConnection({
     type: 'postgres',
-    url: process.env.SUPABASE_URL,
+    url: process.env.DATABASE_URL,
     logging: !isProduction,
     migrations: [path.join(__dirname, './migrations/*')],
-    entities: [Image, Post, Video],
+    entities: [Image, Post, User, Video],
     synchronize: true,
   });
   // dbConnection.runMigrations();
 
   // await Video.delete({});
+  // await Post.delete({});
 
   const app = express();
   const RedisStore = connectRedis(session);
@@ -74,7 +83,7 @@ const startServer = async () => {
 
   const apolloServer = new ApolloServer({
     schema: await buildSchema({
-      resolvers: [ImageResolver, PostResolver, VideoResolver],
+      resolvers: [ImageResolver, PostResolver, UserResolver, VideoResolver],
       validate: false,
     }),
     plugins: [
@@ -86,6 +95,7 @@ const startServer = async () => {
       req,
       res,
       redis,
+      supabase,
     }),
   });
 
