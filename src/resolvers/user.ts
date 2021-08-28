@@ -69,8 +69,7 @@ export class UserResolver {
     @Ctx() { req, supabase }: MyContext,
   ): Promise<UserResponse> {
     const { email, password } = options;
-    const dbUser = await User.findOne({ where: { email } });
-    if (dbUser) {
+    if (await User.findOne({ where: { email } })) {
       return {
         errors: [
           {
@@ -86,7 +85,9 @@ export class UserResolver {
         errors: [{ field: 'password', message: error?.message ?? '' }],
       };
     }
-    req.session.userId = user?.id;
+    const { id: userId } = user;
+    req.session.userId = userId;
+    const dbUser = await User.create({ userId, email }).save();
     return { user: dbUser, session };
   }
 }

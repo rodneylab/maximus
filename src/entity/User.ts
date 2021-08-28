@@ -20,6 +20,10 @@ class User extends BaseEntity {
 
   @Field()
   @Column({ unique: true })
+  userId!: string;
+
+  @Field()
+  @Column({ unique: true })
   username!: string;
 
   @Field()
