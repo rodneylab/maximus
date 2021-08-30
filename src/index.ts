@@ -27,7 +27,7 @@ import { isProduction } from './utilities/utilities';
 
 const supabase = createClient(
   process.env.SUPABASE_URL as string,
-  process.env.SUPABASE_ANON_KEY as string,
+  process.env.SUPABASE_KEY as string,
 );
 
 type UploadFile = {
@@ -61,6 +61,7 @@ const startServer = async () => {
   const RedisStore = connectRedis(session);
   const redis = new Redis(process.env.REDIS_URL);
   app.set('trust proxy', true);
+  // https://github.com/expressjs/cors#cors
   app.use(cors({ origin: process.env.CORS_ORIGIN, credentials: true }));
   app.use(compression());
 
@@ -105,6 +106,7 @@ const startServer = async () => {
     app,
     path: '/graphql',
     cors: false, // using cors package instead
+    // https://www.apollographql.com/docs/apollo-server/api/apollo-server/#framework-specific-middleware-function
   });
 
   app.post('/api/upload', (req, res, next) => {

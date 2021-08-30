@@ -2,8 +2,14 @@ import { Session } from '@supabase/supabase-js';
 import { Arg, Ctx, Field, Mutation, ObjectType, Query, Resolver } from 'type-graphql';
 import User from '../entity/User';
 import { MyContext } from '../types';
-import { signInWithEmail, signUpWithEmail } from '../utilities/user';
-import EmailPasswordInput from './EmailPasswordInput';
+import {
+  signInWithEmail,
+  signUpWithEmail,
+  validEmail,
+  validLoginUsername,
+  validUsername,
+} from '../utilities/user';
+import UsernameEmailPasswordInput from './UsernameEmailPasswordInput';
 
 @ObjectType()
 class FieldError {
@@ -30,25 +36,35 @@ class UserResponse {
 export class UserResolver {
   @Mutation(() => UserResponse)
   async login(
-    @Arg('email') email: string,
+    @Arg('username') username: string,
     @Arg('password') password: string,
     @Ctx() { req, supabase }: MyContext,
   ): Promise<UserResponse> {
-    const dbUser = await User.findOne({ where: { email } });
+    const { errors: usernameErrors } = await validLoginUsername(username);
+    if (usernameErrors) {
+      return { errors: usernameErrors };
+    }
+    const dbUser = await User.findOne({ where: { username } });
+    const loginErrors = [
+      {
+        field: 'username',
+        message: 'Please check username/email.',
+      },
+      {
+        field: 'password',
+        message: 'Please check username/password.',
+      },
+    ];
     if (!dbUser) {
       return {
-        errors: [
-          {
-            field: 'email',
-            message: 'User does not exist',
-          },
-        ],
+        errors: loginErrors,
       };
     }
+    const { email } = dbUser;
     const { user, session, error } = await signInWithEmail(supabase, email, password);
     if (error || !user || !session) {
       return {
-        errors: [{ field: 'password', message: error?.message ?? '' }],
+        errors: loginErrors,
       };
     }
     req.session.userId = user?.id;
@@ -65,30 +81,30 @@ export class UserResolver {
 
   @Mutation(() => UserResponse)
   async register(
-    @Arg('options') options: EmailPasswordInput,
-    @Ctx() { req, supabase }: MyContext,
+    @Arg('options') options: UsernameEmailPasswordInput,
+    @Ctx() { supabase }: MyContext,
   ): Promise<UserResponse> {
-    const { email, password } = options;
-    if (await User.findOne({ where: { email } })) {
-      return {
-        errors: [
-          {
-            field: 'email',
-            message: 'User already exists. Please sign in.',
-          },
-        ],
-      };
+    const { email, password, username } = options;
+
+    const { errors: emailErrors } = await validEmail(email);
+    if (emailErrors) {
+      return { errors: emailErrors };
     }
-    const { user, session, error } = await signUpWithEmail(supabase, email, password);
-    if (error || !user || !session) {
+
+    const { errors: usernameErrors } = await validUsername(username);
+    if (usernameErrors) {
+      return { errors: usernameErrors };
+    }
+
+    const { user, error } = await signUpWithEmail(supabase, email, password);
+    if (error || !user) {
       return {
         errors: [{ field: 'password', message: error?.message ?? '' }],
       };
     }
     const { id: userId } = user;
-    req.session.userId = userId;
-    const dbUser = await User.create({ userId, email }).save();
-    return { user: dbUser, session };
+    const dbUser = await User.create({ userId, email, username }).save();
+    return { user: dbUser };
   }
 }
 
