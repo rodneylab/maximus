@@ -30,6 +30,10 @@ class User extends BaseEntity {
   @Column({ unique: true })
   email!: string;
 
+  @Field()
+  @Column({ nullable: true, unique: true })
+  githubLogin: string;
+
   @Field(() => [Post], { nullable: true })
   @OneToMany(() => Post, (post) => post.creator)
   @TypeormLoader()

@@ -3,6 +3,7 @@ import { Arg, Ctx, Field, Mutation, ObjectType, Query, Resolver } from 'type-gra
 import User from '../entity/User';
 import { MyContext } from '../types';
 import {
+  githubLogin,
   signInWithEmail,
   signUpWithEmail,
   validEmail,
@@ -34,6 +35,33 @@ class UserResponse {
 
 @Resolver(User)
 export class UserResolver {
+  @Mutation(() => UserResponse)
+  async githubLogin(
+    @Arg('accessToken') accessToken: string, // this is the GitHub access token (not supabase)
+    @Arg('refreshToken') refreshToken: string,
+    @Ctx() { req, supabase }: MyContext,
+  ): Promise<UserResponse> {
+    const { login, user, session, error } = await githubLogin(supabase, accessToken, refreshToken);
+    const dbUser = await User.findOne({ where: { githubLogin: login } });
+    if (!dbUser) {
+      return {
+        errors: [
+          {
+            field: 'githubAccount',
+            message: 'Not currently registered',
+          },
+        ],
+      };
+    }
+    if (error || !user || !session) {
+      return {
+        errors: [{ field: 'githubAccount', message: error?.message ?? '' }],
+      };
+    }
+    req.session.userId = user?.id;
+    return { user: dbUser, session };
+  }
+
   @Mutation(() => UserResponse)
   async login(
     @Arg('username') username: string,
