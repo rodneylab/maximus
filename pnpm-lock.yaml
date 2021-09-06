@@ -32,7 +32,7 @@ specifiers:
   express-session: ^1.17.2
   formidable: ^1.2.2
   graphql: ^15.5.3
-  husky: ^7.0.2
+  husky: ^7.0.0
   ioredis: ^4.27.9
   nodemon: ^2.0.12
   pg: ^8.7.1
