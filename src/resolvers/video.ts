@@ -53,7 +53,6 @@ class VideoResolver {
 
   @Mutation(() => Video)
   async createVideo(@Arg('parameters') parameters: CreateVideoParameters): Promise<Video> {
-    // const { captionsFile, captionsUrl, videoFile, videoUrl } = parameters;
     const { captionsUrl, videoUrl } = parameters;
     const { playbackId, videoId } = await upload({ captionsUrl, videoUrl });
 

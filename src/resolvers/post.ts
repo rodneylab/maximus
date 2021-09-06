@@ -1,5 +1,7 @@
+import { MyContext } from 'src/types';
 import {
   Arg,
+  Ctx,
   Field,
   FieldResolver,
   InputType,
@@ -9,10 +11,12 @@ import {
   Query,
   Resolver,
   Root,
+  UseMiddleware,
 } from 'type-graphql';
 import { getConnection, getRepository } from 'typeorm';
 import Post from '../entity/Post';
 import Video from '../entity/Video';
+import { isAuth } from '../middleware/isAuth';
 import { Videos } from './video';
 
 @InputType()
@@ -39,11 +43,13 @@ export class PostResolver {
   }
 
   @Query(() => Post, { nullable: true })
+  @UseMiddleware(isAuth)
   post(@Arg('slug', () => String) slug: string): Promise<Post | undefined> {
     return Post.findOne({ where: { slug } });
   }
 
   @Query(() => PaginatedPosts)
+  @UseMiddleware(isAuth)
   async posts(
     @Arg('limit', () => Int) limit: number,
     @Arg('cursor', () => String, { nullable: true }) cursor: string | null,
@@ -71,8 +77,10 @@ limit $1
   }
 
   @Mutation(() => Post)
-  async createPost(@Arg('input') input: PostInput): Promise<Post> {
-    return Post.create({ ...input }).save();
+  @UseMiddleware(isAuth)
+  async createPost(@Arg('input') input: PostInput, @Ctx() { req }: MyContext): Promise<Post> {
+    const creatorId = req.session.userId;
+    return Post.create({ ...input, creatorId }).save();
   }
 }
 
