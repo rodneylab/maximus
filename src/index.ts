@@ -71,6 +71,7 @@ const startServer = async () => {
       store: new RedisStore({ client: redis, disableTouch: true }),
       cookie: {
         maxAge: 31_536_000_000, // 1000 * 3600 * 24 * 365 * 1 (1 year)
+        // maxAge: 10_800_000, // 1000 * 3600 (3 hours)
         httpOnly: true, // disable access via front end
         sameSite: 'lax', //csrf protection
         secure: isProduction, // https only

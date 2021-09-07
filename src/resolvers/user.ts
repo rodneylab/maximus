@@ -58,7 +58,8 @@ export class UserResolver {
         errors: [{ field: 'githubAccount', message: error?.message ?? '' }],
       };
     }
-    req.session.userId = user?.id;
+    const { id } = dbUser;
+    req.session.userId = id;
     return { user: dbUser, session };
   }
 
@@ -88,14 +89,14 @@ export class UserResolver {
         errors: loginErrors,
       };
     }
-    const { email } = dbUser;
+    const { email, id } = dbUser;
     const { user, session, error } = await signInWithEmail(supabase, email, password);
     if (error || !user || !session) {
       return {
         errors: loginErrors,
       };
     }
-    req.session.userId = user?.id;
+    req.session.userId = id;
     return { user: dbUser, session };
   }
 
