@@ -37,6 +37,7 @@ class PaginatedPosts {
 
 @Resolver(Post)
 export class PostResolver {
+  @UseMiddleware(isAuth)
   @FieldResolver(() => Videos)
   async videos(@Root() post: Post) {
     return getRepository(Video).find({ where: { slug: post.slug } });

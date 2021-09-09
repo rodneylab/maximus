@@ -50,12 +50,13 @@ const startServer = async () => {
     logging: !isProduction,
     migrations: [path.join(__dirname, './migrations/*')],
     entities: [Image, Post, User, Video],
-    synchronize: true,
+    // synchronize: true,
   });
   // dbConnection.runMigrations();
 
   // await Video.delete({});
   // await Post.delete({});
+  // await User.delete({});
 
   const app = express();
   const RedisStore = connectRedis(session);

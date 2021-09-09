@@ -38,6 +38,10 @@ export async function githubLogin(
   }
 }
 
+export function githubRegistrationPermitted() {
+  return process.env.ALLOW_GITHUB_REGISTRATION === 'true';
+}
+
 export async function signInWithGithub(supabase: SupabaseClient) {
   const { user, session, error } = await supabase.auth.signIn({
     provider: 'github',

@@ -1,5 +1,16 @@
-import { Arg, Field, InputType, Int, Mutation, ObjectType, Query, Resolver } from 'type-graphql';
+import {
+  Arg,
+  Field,
+  InputType,
+  Int,
+  Mutation,
+  ObjectType,
+  Query,
+  Resolver,
+  UseMiddleware,
+} from 'type-graphql';
 import Video from '../entity/Video';
+import { isAuth } from '../middleware/isAuth';
 import { upload } from '../utilities/video';
 
 @InputType()
@@ -47,11 +58,13 @@ export class Videos {
 @Resolver()
 class VideoResolver {
   @Query(() => Videos)
+  @UseMiddleware(isAuth)
   async videos(@Arg('slug') slug: String): Promise<Video[]> {
     return Video.find({ where: { slug } });
   }
 
   @Mutation(() => Video)
+  @UseMiddleware(isAuth)
   async createVideo(@Arg('parameters') parameters: CreateVideoParameters): Promise<Video> {
     const { captionsUrl, videoUrl } = parameters;
     const { playbackId, videoId } = await upload({ captionsUrl, videoUrl });
@@ -66,6 +79,7 @@ class VideoResolver {
   }
 
   @Mutation(() => Boolean)
+  @UseMiddleware(isAuth)
   async deleteVideo(@Arg('id', () => Int) id: number): Promise<boolean> {
     const video = await Video.findOne({ id });
     if (!video) {

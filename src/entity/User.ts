@@ -11,6 +11,11 @@ import {
 } from 'typeorm';
 import Post from './Post';
 
+export enum UserLogin {
+  EMAIL = 'email',
+  GITHUB = 'github',
+}
+
 @ObjectType()
 @Entity()
 class User extends BaseEntity {
@@ -23,6 +28,10 @@ class User extends BaseEntity {
   userId!: string;
 
   @Field()
+  @Column({ type: 'enum', enum: UserLogin })
+  loginType!: UserLogin;
+
+  @Field()
   @Column({ unique: true })
   username!: string;
 
@@ -30,9 +39,9 @@ class User extends BaseEntity {
   @Column({ unique: true })
   email!: string;
 
-  @Field()
-  @Column({ nullable: true, unique: true })
-  githubLogin: string;
+  // @Field()
+  // @Column({ nullable: true, unique: true })
+  // githubLogin: string;
 
   @Field(() => [Post], { nullable: true })
   @OneToMany(() => Post, (post) => post.creator)

@@ -1,9 +1,11 @@
 import { Session } from '@supabase/supabase-js';
 import { Arg, Ctx, Field, Mutation, ObjectType, Query, Resolver } from 'type-graphql';
-import User from '../entity/User';
+import { COOKIE_NAME } from '../constants';
+import User, { UserLogin } from '../entity/User';
 import { MyContext } from '../types';
 import {
   githubLogin,
+  githubRegistrationPermitted,
   signInWithEmail,
   signUpWithEmail,
   validEmail,
@@ -33,6 +35,7 @@ class UserResponse {
   session?: Session;
 }
 
+// used for register and login - email signup needs to enabled in supabase for this to succeed
 @Resolver(User)
 export class UserResolver {
   @Mutation(() => UserResponse)
@@ -41,17 +44,41 @@ export class UserResolver {
     @Arg('refreshToken') refreshToken: string,
     @Ctx() { req, supabase }: MyContext,
   ): Promise<UserResponse> {
-    const { login, user, session, error } = await githubLogin(supabase, accessToken, refreshToken);
-    const dbUser = await User.findOne({ where: { githubLogin: login } });
-    if (!dbUser) {
+    const { user, session, error } = await githubLogin(supabase, accessToken, refreshToken);
+    if (!user || !session) {
       return {
         errors: [
           {
             field: 'githubAccount',
-            message: 'Not currently registered',
+            message: 'Invalid user',
           },
         ],
       };
+    }
+    const { user_metadata } = user;
+    let dbUser = await User.findOne({
+      where: { username: user_metadata.user_name, loginType: UserLogin.GITHUB },
+    });
+    if (!dbUser) {
+      if (!githubRegistrationPermitted) {
+        return {
+          errors: [
+            {
+              field: 'githubAccount',
+              message: 'Not currently registered',
+            },
+          ],
+        };
+      }
+
+      const { email, id } = user;
+      dbUser = await User.create({
+        userId: id,
+        email,
+        loginType: UserLogin.GITHUB,
+        username: user_metadata.user_name,
+      }).save();
+      return { user: dbUser, session };
     }
     if (error || !user || !session) {
       return {
@@ -73,7 +100,7 @@ export class UserResolver {
     if (usernameErrors) {
       return { errors: usernameErrors };
     }
-    const dbUser = await User.findOne({ where: { username } });
+    const dbUser = await User.findOne({ where: { username, loginType: UserLogin.EMAIL } });
     const loginErrors = [
       {
         field: 'username',
@@ -92,12 +119,28 @@ export class UserResolver {
     const { email, id } = dbUser;
     const { user, session, error } = await signInWithEmail(supabase, email, password);
     if (error || !user || !session) {
+      console.log('supabase login error: ', error?.message);
       return {
         errors: loginErrors,
       };
     }
     req.session.userId = id;
     return { user: dbUser, session };
+  }
+
+  @Mutation(() => Boolean)
+  logout(@Ctx() { req, res }: MyContext) {
+    return new Promise((resolve) =>
+      req.session.destroy((error) => {
+        res.clearCookie(COOKIE_NAME);
+        if (error) {
+          console.error(error);
+          resolve(false);
+          return;
+        }
+        resolve(true);
+      }),
+    );
   }
 
   @Query(() => User, { nullable: true })
@@ -132,7 +175,12 @@ export class UserResolver {
       };
     }
     const { id: userId } = user;
-    const dbUser = await User.create({ userId, email, username }).save();
+    const dbUser = await User.create({
+      userId,
+      email,
+      username,
+      loginType: UserLogin.EMAIL,
+    }).save();
     return { user: dbUser };
   }
 }
