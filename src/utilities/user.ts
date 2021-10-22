@@ -12,7 +12,7 @@ export async function githubLogin(
   refreshToken: string,
 ) {
   try {
-    const response = await axios({
+    const response = await axios.request<{ login: string }>({
       url: 'https://api.github.com/user',
       method: 'GET',
       headers: {
@@ -89,7 +89,7 @@ export async function validEmail(email: string) {
       errors: [
         {
           field: 'email',
-          message: 'User already exists. Please sign in.',
+          message: 'You might already have an account. Did you try signing in?',
         },
       ],
     };
@@ -103,7 +103,7 @@ export async function validUsername(username: string) {
       errors: [
         {
           field: 'username',
-          message: 'Please choose a username with only letter, numbers, underscores and hyphens.',
+          message: 'Please choose a username with only letters, numbers, underscores and hyphens.',
         },
       ],
     };
@@ -113,7 +113,7 @@ export async function validUsername(username: string) {
       errors: [
         {
           field: 'username',
-          message: 'Username is not currently available, please choose another.',
+          message: `${username} is not currently available, please choose something else as your username.`,
         },
       ],
     };

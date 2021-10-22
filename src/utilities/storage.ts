@@ -66,7 +66,14 @@ const authoriseAccount = async (): Promise<BackblazeAuthoriseAccountResponse> =>
         `${process.env.BACKBLAZE_ACCOUNT_ID}:${process.env.BACKBLAZE_ACCOUNT_AUTH_TOKEN}`,
         'utf-8',
       ).toString('base64');
-      const response = await axios({
+      const response = await axios.request<{
+        absoluteMinimumPartSize: number;
+        authorizationToken: string;
+        apiUrl: string;
+        downloadUrl: string;
+        recommendedPartSize: number;
+        s3ApiUrl: string;
+      }>({
         url: 'https://api.backblazeb2.com/b2api/v2/b2_authorize_account',
         method: 'GET',
         headers: {

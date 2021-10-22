@@ -28,7 +28,9 @@ export const upload = (props: VideoUploadProps) => {
         playback_policy: 'public',
         mp4_support: 'standard',
       };
-      const response = await axios({
+      const response = await axios.request<{
+        data: { id: string; playback_ids: { id: string }[] };
+      }>({
         url: 'https://api.mux.com/video/v1/assets',
         method: 'POST',
         headers: {
