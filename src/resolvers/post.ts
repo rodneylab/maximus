@@ -45,7 +45,7 @@ export class PostResolver {
 
   @Query(() => Post, { nullable: true })
   @UseMiddleware(isAuth)
-  post(@Arg('slug', () => String) slug: string): Promise<Post | undefined> {
+  post(@Arg('slug', () => String) slug: string): Promise<Post | null> {
     return Post.findOne({ where: { slug } });
   }
 

@@ -59,7 +59,7 @@ export class Videos {
 class VideoResolver {
   @Query(() => Videos)
   @UseMiddleware(isAuth)
-  async videos(@Arg('slug') slug: String): Promise<Video[]> {
+  async videos(@Arg('slug') slug: string): Promise<Video[]> {
     return Video.find({ where: { slug } });
   }
 
@@ -81,7 +81,7 @@ class VideoResolver {
   @Mutation(() => Boolean)
   @UseMiddleware(isAuth)
   async deleteVideo(@Arg('id', () => Int) id: number): Promise<boolean> {
-    const video = await Video.findOne({ id });
+    const video = await Video.findOne({ where: { id } });
     if (!video) {
       return false;
     }

@@ -331,8 +331,8 @@ const uploadParts = async ({
   const data = await fs.readFileSync(path);
   const lastIndex = uploadUrls.length - 1;
 
-  const uploadPromises = uploadUrls.map((element, index) => {
-    return axios({
+  const uploadPromises = uploadUrls.map((element, index) =>
+    axios({
       url: element,
       method: 'PUT',
       data:
@@ -342,8 +342,8 @@ const uploadParts = async ({
       headers: {
         'Content-Type': contentType,
       },
-    });
-  });
+    }),
+  );
   const uploadResults = await Promise.all(uploadPromises);
   return uploadResults.map((element, index) => ({
     ETag: element.headers.etag,
