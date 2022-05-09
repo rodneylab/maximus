@@ -1,4 +1,4 @@
-import { createClient } from '@supabase/supabase-js';
+// import { createClient } from '@supabase/supabase-js';
 import { ApolloServer } from 'apollo-server-express';
 import compression from 'compression';
 import connectRedis from 'connect-redis';
@@ -9,6 +9,7 @@ import session from 'express-session';
 import formidable from 'formidable';
 import Redis from 'ioredis';
 import path from 'path';
+import { createClient } from 'redis';
 import 'reflect-metadata';
 import { buildSchema } from 'type-graphql';
 import { ApolloServerLoaderPlugin } from 'type-graphql-dataloader';
@@ -25,10 +26,10 @@ import VideoResolver from './resolvers/video';
 import { remove, upload } from './utilities/storage';
 import { isProduction } from './utilities/utilities';
 
-const supabase = createClient(
-  process.env.SUPABASE_URL as string,
-  process.env.SUPABASE_KEY as string,
-);
+// const supabase = createClient(
+//   process.env.SUPABASE_URL as string,
+//   process.env.SUPABASE_KEY as string,
+// );
 
 type UploadFile = {
   name: string;
@@ -60,7 +61,11 @@ const startServer = async () => {
 
   const app = express();
   const RedisStore = connectRedis(session);
-  const redis = new Redis(process.env.REDIS_URL);
+  const redisClient = createClient({ legacyMode: true });
+  // const redisClient = new Redis();
+  redisClient.connect().catch(console.error);
+
+  const redis = new Redis(process.env.REDIS_URL as string);
   app.set('trust proxy', true);
   // https://github.com/expressjs/cors#cors
   app.use(cors({ origin: process.env.CORS_ORIGIN, credentials: true }));
@@ -69,7 +74,7 @@ const startServer = async () => {
   app.use(
     session({
       name: COOKIE_NAME,
-      store: new RedisStore({ client: redis, disableTouch: true }),
+      store: new RedisStore({ client: redisClient, disableTouch: true }),
       cookie: {
         maxAge: 31_536_000_000, // 1000 * 3600 * 24 * 365 * 1 (1 year)
         // maxAge: 10_800_000, // 1000 * 3600 (3 hours)
